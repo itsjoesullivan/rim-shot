@@ -1,8 +1,19 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var makeDistortionCurve = require('make-distortion-curve');
+var curve = makeDistortionCurve(1024);
+
 
 // partially informed by the rather odd http://www.kvraudio.com/forum/viewtopic.php?t=383536
 module.exports = function(context) {
+
+  var distortion = context.createWaveShaper();
+  distortion.curve = curve;
+
+  var highpass = context.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = 700;
+
+  distortion.connect(highpass);
 
   return function() {
     var duration = 0.05;
@@ -14,19 +25,17 @@ module.exports = function(context) {
     oscs.forEach(function(osc) {
       osc.type = "triangle";
     });
-    var highpass = context.createBiquadFilter();
-    highpass.type = "highpass";
-    highpass.frequency.value = 700;
     oscs[0].frequency.value = 500;
     oscs[1].frequency.value = 1720;
-    var distortion = context.createWaveShaper();
-    distortion.curve = makeDistortionCurve(1024);
+
+
+    var gainStage = context.createGain();
 
     var gain = context.createGain();
+
     oscs.forEach(function(osc) {
       osc.connect(distortion);
     });
-    distortion.connect(highpass);
     highpass.connect(gain);
     gain.start = function(when) {
       oscs.forEach(function(osc) {
@@ -45,8 +54,9 @@ module.exports = function(context) {
 var Sound = require('./index');
 var context = new AudioContext();
 
+var sound = Sound(context, {});
+
 document.getElementById('play').addEventListener('click', function(e) {
-  var sound = Sound(context, {});
   soundNode = sound();
   soundNode.connect(context.destination);
   soundNode.start(context.currentTime + 0.01);
